@@ -28,7 +28,3 @@ To address these challenges, we conducted statistical analyses and visualized th
 
 1. **Feature Selection** : We removed variables deemed "useless" based on our analysis and retrained the models with the updated dataset.
 2. **Qualitative Prediction**: We focused on qualitatively predicting the target variable to improve model performance.
-
-### Limitations
-
-Data Augmentation Issues: We encountered problems with data augmentation as the SMOTE (Synthetic Minority Over-sampling Technique) did not work effectively for our dataset.
