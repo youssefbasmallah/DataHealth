@@ -1,0 +1,349 @@
+---
+title: "projet_datasante"
+format: html
+editor: visual
+---
+
+# 1. Exploring the dataset
+
+```{r}
+# LOADING THE PACKAGES
+library('DataExplorer')
+library(ggplot2)
+library(dplyr)
+```
+
+```{r}
+# LOADING THE DATASET
+df <- read.csv('NPHA-doctor-visits.csv', header = TRUE, sep = ',')
+head(df, 10)
+```
+
+```{r}
+# DISPLAYING THE DATASET
+introduce(df)
+plot_histogram(df)
+```
+
+```{r}
+# Calculate the distribution of the target variable
+distribution <- df %>%
+  group_by(Number.of.Doctors.Visited) %>%
+  summarise(Count = n())
+
+# Display the exact numbers
+print(distribution)
+
+# Display the distribution as a graph
+ggplot(df, aes(x = factor(Number.of.Doctors.Visited))) +
+  geom_bar(fill = "steelblue") +
+  geom_text(stat='count', aes(label=..count..), vjust=-0.5) +  # Add numbers above the bars
+  labs(title = "Distribution of the Number of Doctors Visited",
+       x = "Number of Doctors Visited",
+       y = "Number of Patients") +
+  theme_minimal()
+
+```
+
+```{r}
+# DATASET STRUCTURE
+str(df)
+# DATASET INFO
+summary(df)
+# SUM OF THE MISSING DATAS FOR EACH COLUMN
+colSums(is.na(df))
+```
+
+```{r}
+# IMPORTING ML PACKAGES
+library(tidymodels)   # ML framework
+library(data.table)   # Data manipulation
+library(mlbench)      # Sample dataset
+library(DALEX)        # Model interpretability
+library(kernlab)      # Support Vector Machine
+```
+
+```{r}
+library(ggplot2)
+library(dplyr)
+library(tidyr)  # For pivot_longer
+
+# Select only numeric columns manually
+num_cols <- df[, sapply(df, is.numeric)]
+
+# Transform the data for ggplot2
+df_long <- pivot_longer(as.data.frame(num_cols), cols = everything(), names_to = "Variable", values_to = "Value")
+
+# Plot the boxplots
+ggplot(df_long, aes(x = Variable, y = Value)) +
+  geom_boxplot(outlier.colour = "red", outlier.shape = 16) +
+  theme_minimal() +
+  labs(title = "Boxplot of Numeric Variables", x = "Variables", y = "Values") +
+  coord_flip()
+```
+
+# 2. Data Processing
+
+Here we are experimenting several techniques to balance the data. Also, we are created df_cleaned to try our model afterwards on a simplier dataset with less noise and therefore maybe more efficient.
+
+```{r}
+# UNDERSAMPLING STRATIFIED --> Creation of df_balanced
+library(dplyr)
+
+# Set the number of examples to keep per class (e.g., the minimum 131)
+min_count <- min(table(df$Number.of.Doctors.Visited))
+
+# Apply balanced undersampling
+df_balanced <- df %>%
+  group_by(Number.of.Doctors.Visited) %>%
+  sample_n(min_count, replace = FALSE) %>%
+  ungroup()
+
+# Check the new distribution
+table(df_balanced$Number.of.Doctors.Visited)
+```
+
+```{r}
+# REMOVING SEVERAL COLUMNS DEEMED IRRELEVANT --> Creation of df_cleaned
+df_cleaned <- df
+df_cleaned$Race <- NULL
+df_cleaned$Gender <- NULL
+df_cleaned$Prescription.Sleep.Medication <- NULL
+df_cleaned$Stress.Keeps.Patient.from.Sleeping <- NULL
+
+# Variables with extremely low p-value
+#df_clean <- df
+#df_clean$Physical.Health <- NULL
+#df_clean$Employment <- NULL
+#df_clean$Prescription.Sleep.Medication <- NULL
+#df_clean$Medication.Keeps.Patient.from.Sleeping <- NULL
+
+# Check the structure after removal
+str(df_cleaned)
+```
+
+## 3. SVM model
+
+```{r}
+# GRIDSEARCH TO FIND THE OPTIMAL PARAMETERS
+library(e1071)
+library(caret)
+
+# Définir la grille de paramètres à tester
+tune_grid <- expand.grid(
+  C = c(0.001, 0.1, 1, 10, 100, 1000),    # Essayer différentes valeurs pour 'C' (équivalent à 'cost')
+  sigma = c(0.001, 0.01, 0.1, 1, 5, 10, 20, 30, 50, 100) # Essayer différentes valeurs pour 'sigma' (équivalent à 'gamma')
+)
+
+# Effectuer la recherche sur grille
+svm_tune <- train(
+  as.factor(Number.of.Doctors.Visited) ~ ., 
+  data = train,
+  method = "svmRadial",
+  trControl = trainControl(method = "cv", number = 5),  # Validation croisée à 5 plis
+  tuneGrid = tune_grid,
+  class.weights = weights  # Ajouter les poids de classes
+)
+
+# Afficher les meilleurs paramètres
+print(svm_tune$bestTune)
+
+# Entraîner le modèle avec les meilleurs paramètres
+svm_model_tuned <- svm(
+  as.factor(Number.of.Doctors.Visited) ~ ., 
+  data = train,
+  kernel = "radial", 
+  cost = svm_tune$bestTune$C, 
+  gamma = svm_tune$bestTune$sigma,  # 'sigma' est utilisé comme 'gamma' pour le noyau radial
+  class.weights = weights
+)
+
+# Afficher les détails du modèle
+print(svm_model_tuned)
+
+# Prédictions avec le modèle optimisé
+predictions_tuned <- predict(svm_model_tuned, newdata = test)
+
+# Matrice de confusion et évaluation des performances
+conf_matrix_tuned <- confusionMatrix(as.factor(predictions_tuned), as.factor(test$Number.of.Doctors.Visited))
+print(conf_matrix_tuned)
+#F1-score moyen
+f1_score_mean <- mean(2 * (conf_matrix$byClass[, "Precision"] * conf_matrix$byClass[, "Recall"]) /
+                      (conf_matrix$byClass[, "Precision"] + conf_matrix$byClass[, "Recall"]), na.rm = TRUE)
+cat("F1-score moyen :", f1_score_mean, "\n")# GRIDSEARCH TO FIND THE OPTIMAL PARAMETERS
+library(e1071)
+library(caret)
+
+# Define the grid of parameters to test
+tune_grid <- expand.grid(
+  C = c(0.001, 0.1, 1, 10, 100, 1000),    # Try different values for 'C' (equivalent to 'cost')
+  sigma = c(0.001, 0.01, 0.1, 1, 5, 10, 20, 30, 50, 100) # Try different values for 'sigma' (equivalent to 'gamma')
+)
+
+# Perform grid search
+svm_tune <- train(
+  as.factor(Number.of.Doctors.Visited) ~ ., 
+  data = train,
+  method = "svmRadial",
+  trControl = trainControl(method = "cv", number = 5),  # 5-fold cross-validation
+  tuneGrid = tune_grid,
+  class.weights = weights  # Add class weights
+)
+
+# Display the best parameters
+print(svm_tune$bestTune)
+
+# Train the model with the best parameters
+svm_model_tuned <- svm(
+  as.factor(Number.of.Doctors.Visited) ~ ., 
+  data = train,
+  kernel = "radial", 
+  cost = svm_tune$bestTune$C, 
+  gamma = svm_tune$bestTune$sigma,  # 'sigma' is used as 'gamma' for the radial kernel
+  class.weights = weights
+)
+
+# Display model details
+print(svm_model_tuned)
+
+# Predictions with the optimized model
+predictions_tuned <- predict(svm_model_tuned, newdata = test)
+
+# Confusion matrix and performance evaluation
+conf_matrix_tuned <- confusionMatrix(as.factor(predictions_tuned), as.factor(test$Number.of.Doctors.Visited))
+print(conf_matrix_tuned)
+
+# Mean F1-score
+f1_score_mean <- mean(2 * (conf_matrix$byClass[, "Precision"] * conf_matrix$byClass[, "Recall"]) /
+                      (conf_matrix$byClass[, "Precision"] + conf_matrix$byClass[, "Recall"]), na.rm = TRUE)
+cat("Mean F1-score:", f1_score_mean, "\n")
+```
+
+```{r}
+# SVM ON THE WHOLE DATASET
+library(e1071)  # For SVM 
+library(caret)  # For the model evaluation
+set.seed(123)  # Set the seed for reproducibility
+
+# Split into 80% training / 20% test
+index <- createDataPartition(df$Number.of.Doctors.Visited, p = 0.8, list = FALSE)
+train_data <- df[index, ]
+test_data <- df[-index, ]
+
+# Compute class weights (based on the frequency of each class)
+class_weights <- table(train_data$Number.of.Doctors.Visited)
+class_weights <- 1 / class_weights  # Invert frequency (the rarer the class, the higher its weight)
+class_weights <- class_weights / sum(class_weights)  # Normalize the weights
+
+# Create a class weight vector
+weights <- as.list(class_weights)
+names(weights) <- levels(as.factor(train_data$Number.of.Doctors.Visited))
+
+# Display class weights
+print(weights)
+
+# Train an SVM with a radial kernel
+svm_model <- svm(as.factor(Number.of.Doctors.Visited) ~ ., data = train_data, kernel = "radial", cost = 10, gamma = 10, class.weights = weights)
+
+# Display model details
+print(svm_model)
+
+# Predictions
+predictions <- predict(svm_model, newdata = test_data)
+predictions <- factor(predictions, levels = levels(as.factor(test_data$Number.of.Doctors.Visited)))
+
+# Confusion matrix
+conf_matrix <- confusionMatrix(as.factor(predictions), as.factor(test_data$Number.of.Doctors.Visited))
+print(conf_matrix)
+
+# Mean F1-score
+f1_score_mean <- mean(2 * (conf_matrix$byClass[, "Precision"] * conf_matrix$byClass[, "Recall"]) /
+                      (conf_matrix$byClass[, "Precision"] + conf_matrix$byClass[, "Recall"]), na.rm = TRUE)
+
+cat("Mean F1-score:", f1_score_mean, "\n")
+```
+
+```{r}
+# SVM USING df_balanced (UNDERSAMPLING)
+library(e1071)  # For SVM 
+library(caret)  # For the model evaluation
+set.seed(123)  # Set the seed for reproducibility
+
+# Split into 80% training / 20% test
+index <- createDataPartition(df_balanced$Number.of.Doctors.Visited, p = 0.8, list = FALSE)
+train_data_undersampling <- df_balanced[index, ]
+test_data_undersampling <- df_balanced[-index, ]
+
+# Compute class weights (based on the frequency of each class)
+class_weights <- table(train_data_undersampling$Number.of.Doctors.Visited)
+class_weights <- 1 / class_weights  # Invert frequency (the rarer the class, the higher its weight)
+class_weights <- class_weights / sum(class_weights)  # Normalize the weights
+
+# Create a class weight vector
+weights <- as.list(class_weights)
+names(weights) <- levels(as.factor(train_data_undersampling$Number.of.Doctors.Visited))
+
+# Printing class weights
+print(weights)
+
+# Train an SVM with a radial kernel
+svm_model <- svm(as.factor(Number.of.Doctors.Visited) ~ ., data = train_data_undersampling, kernel = "radial", cost = 10, gamma = 10, class.weights = weights)
+
+# Printing the model's details
+print(svm_model)
+
+# Predictions
+predictions <- predict(svm_model, newdata = test_data_undersampling)
+predictions <- factor(predictions, levels = levels(as.factor(test_data_undersampling$Number.of.Doctors.Visited)))
+
+# Confusion matrix
+conf_matrix <- confusionMatrix(as.factor(predictions), as.factor(test_data_undersampling$Number.of.Doctors.Visited))
+print(conf_matrix)
+
+# Mean F1-score
+f1_score_mean <- mean(2 * (conf_matrix$byClass[, "Precision"] * conf_matrix$byClass[, "Recall"]) /
+                      (conf_matrix$byClass[, "Precision"] + conf_matrix$byClass[, "Recall"]), na.rm = TRUE)
+
+cat("Mean F1-score :", f1_score_mean, "\n")
+```
+
+```{r}
+# SVM USING df_cleaned
+library(e1071)  # For the SVM model
+library(caret)  # For model evaluation
+
+set.seed(123)  # Set the seed for reproducibility
+
+# Split into 80% train / 20% test
+index <- createDataPartition(df_cleaned$Number.of.Doctors.Visited, p = 0.8, list = FALSE)
+train_data_cleaned <- df_cleaned[index, ]
+test_data_cleaned <- df_cleaned[-index, ]
+
+# Weights not used here because they reduce overall accuracy.
+
+# Train an SVM with a radial kernel
+svm_model_cleaned <- svm(as.factor(Number.of.Doctors.Visited) ~ ., data = train_data_cleaned, kernel = "radial", cost = 100, gamma = 0.01)
+
+# Print model details
+print(svm_model_cleaned)
+
+# Predictions
+predictions <- predict(svm_model_cleaned, newdata = test_data_cleaned)
+predictions <- factor(predictions, levels = levels(as.factor(test_data_cleaned$Number.of.Doctors.Visited)))
+
+# Confusion matrix
+conf_matrix <- confusionMatrix(as.factor(predictions), as.factor(test_data_cleaned$Number.of.Doctors.Visited))
+print(conf_matrix)
+
+# Extracting Precision, Recall and computing the F1-score
+precision <- conf_matrix$byClass["Precision"]
+recall <- conf_matrix$byClass["Recall"]
+f1_score <- 2 * (precision * recall) / (precision + recall)
+
+# Mean F1-score
+f1_score_mean <- mean(2 * (conf_matrix$byClass[, "Precision"] * conf_matrix$byClass[, "Recall"]) /
+                      (conf_matrix$byClass[, "Precision"] + conf_matrix$byClass[, "Recall"]), na.rm = TRUE)
+cat("Mean F1-score:", f1_score_mean, "\n")
+```
+
+We can see that the best model is df_cleaned. The variables were selected for removal based on statistical analysis (see "Statistical Studies"), notably by examining the correlation between variables and eliminating redundant ones.
