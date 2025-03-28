@@ -1,0 +1,80 @@
+---
+title: "Statistical_studies"
+format: html
+editor: visual
+---
+
+# Statistical studies
+
+Given the low results of our ML models, most likely because of the dataset imbalance, we have decided to analyze the data by conducting statistical studies.
+
+```{r}
+# LOADING THE DATASET
+df <- read.csv('NPHA-doctor-visits.csv', header = TRUE, sep = ',')
+head(df, 10)
+```
+
+```{r}
+boxplot(df$Phyiscal.Health~df$Number.of.Doctors.Visited)
+boxplot(df$Mental.Health~df$Number.of.Doctors.Visited)
+boxplot(df$Dental.Health~df$Number.of.Doctors.Visited)
+boxplot(df$Employment~df$Number.of.Doctors.Visited)
+boxplot(df$Stress.Keeps.Patient.from.Sleeping~df$Number.of.Doctors.Visited)
+boxplot(df$Medication.Keeps.Patient.from.Sleeping~df$Number.of.Doctors.Visited)
+boxplot(df$Pain.Keeps.Patient.from.Sleeping~df$Number.of.Doctors.Visited)
+boxplot(df$Bathroom.Needs.Keeps.Patient.from.Sleeping~df$Number.of.Doctors.Visited)
+boxplot(df$Uknown.Keeps.Patient.from.Sleeping~df$Number.of.Doctors.Visited)
+boxplot(df$Trouble.Sleeping~df$Number.of.Doctors.Visited)
+boxplot(df$Prescription.Sleep.Medication~df$Number.of.Doctors.Visited)
+boxplot(df$Race~df$Number.of.Doctors.Visited)
+boxplot(df$Gender~df$Number.of.Doctors.Visited)
+```
+
+```{r}
+# Converting the target variable 'Number.of.Doctors.Visited' variable to numeric format
+df$Number.of.Doctors.Visited <- as.numeric(as.character(df$Number.of.Doctors.Visited))
+
+# Histogram of the target variable
+hist(df$Number.of.Doctors.Visited, 
+     main="Distribution du nombre de médecins visités", 
+     xlab="Number of doctors visited"  , 
+     col="lightblue", 
+     breaks=20)
+
+# Scatter plot between Number.of.Doctors.Visited and another numerical variable (e.g., Age)  
+plot(df$Number.of.Doctors.Visited, df$Race, 
+     xlab="Number of doctors visited", ylab="Race", 
+     main="Relationship between the number of doctors visited and age" , 
+     col="blue", pch=16)
+
+# Variable pairs
+pairs(df[, c("Number.of.Doctors.Visited", "Age", "Race", "Employment")],
+      main="Pair plot")
+```
+
+```{r}
+library(corrplot)
+
+# Computing correlations between Number.of.Doctors.Visited and other numerical variables  
+correlation_matrix <- cor(df[, sapply(df, is.numeric)])
+print(correlation_matrix)
+
+correlation_matrix <- cor(df[, sapply(df, is.numeric)])
+
+# Expanding the graphical window with par()  
+par(mar=c(1,1,1,1))  # Adjust margins (can be modified for more space)  
+
+# If you want an even larger plot, you can adjust the display size using the `cex` parameter  
+# Using corrplot with the "circle" method  
+corrplot(correlation_matrix,  
+         method="circle",    # Use circles to display correlations  
+         type="full",        # Show the entire matrix  
+         addCoef.col = "black", # Add correlation coefficients to the plot  
+         number.cex = 0.7,   # Font size of correlation coefficients  
+         tl.col = "black",   # Label color  
+         tl.srt = 45,        # Rotate labels  
+         cl.lim = c(-1, 1),  # Color scale limits from -1 to 1  
+         diag = FALSE,       # Do not display the diagonal  
+         tl.pos = "lt",      # Label position  
+         mar = c(0, 0, 1, 0))  # Adjust margins for more space
+```
