@@ -1,0 +1,175 @@
+# Importation des librairies
+
+```{r}
+library(tidyverse)  # Pour la manipulation des données
+library(caret)      # Pour l'entraînement des modèles
+library(randomForest) # Random Forest
+library(nnet)       # Pour la régression logistique multinomiale
+library(dplyr)  # Charger le package pour glimpse()
+library(ggplot2)
+library(rpart)
+library(rpart.plot)
+```
+
+# 1. Chargement et exploration des données
+
+```{r}
+df <- read.csv("doctor_visits.csv", header = TRUE, sep = ',')
+head(df)
+```
+
+```{r}
+# Aperçu du DataFrame
+glimpse(df)
+summary(df)
+
+# Supprimer la colonne "Age"
+df$Age <- NULL
+
+# Convertir toutes les colonnes en facteur
+df[] <- lapply(df, as.factor)
+
+# Vérifier le résultat
+str(df)
+```
+
+```{r}
+# Calculer la distribution de la variable cible
+distribution <- df %>%
+  group_by(Number.of.Doctors.Visited) %>%
+  summarise(Count = n())
+
+# Afficher la distribution sous forme de graphique
+ggplot(df, aes(x = factor(Number.of.Doctors.Visited))) +
+  geom_bar(fill = "steelblue") +
+  geom_text(stat='count', aes(label=..count..), vjust=-0.5) +  # Ajout des chiffres au-dessus des barres
+  labs(title = "Distribution du nombre de médecins visités",
+       x = "Nombre de médecins visités",
+       y = "Nombre de patients") + theme_minimal()
+```
+
+```{r}
+boxplot(df$Phyiscal.Health~df$Number.of.Doctors.Visited)
+boxplot(df$Mental.Health~df$Number.of.Doctors.Visited)
+boxplot(df$Dental.Health~df$Number.of.Doctors.Visited)
+boxplot(df$Employment~df$Number.of.Doctors.Visited)
+boxplot(df$Stress.Keeps.Patient.from.Sleeping~df$Number.of.Doctors.Visited)
+boxplot(df$Medication.Keeps.Patient.from.Sleeping~df$Number.of.Doctors.Visited)
+boxplot(df$Pain.Keeps.Patient.from.Sleeping~df$Number.of.Doctors.Visited)
+boxplot(df$Bathroom.Needs.Keeps.Patient.from.Sleeping~df$Number.of.Doctors.Visited)
+boxplot(df$Uknown.Keeps.Patient.from.Sleeping~df$Number.of.Doctors.Visited)
+boxplot(df$Trouble.Sleeping~df$Number.of.Doctors.Visited)
+boxplot(df$Prescription.Sleep.Medication~df$Number.of.Doctors.Visited)
+boxplot(df$Race~df$Number.of.Doctors.Visited)
+boxplot(df$Gender~df$Number.of.Doctors.Visited)
+```
+
+# 2. Séparation en train/test
+
+```{r}
+set.seed(123)  # Fixer la graine pour la reproductibilité
+
+train_index <- createDataPartition(df$Number.of.Doctors.Visited, p = 0.8, list = FALSE)
+data_train <- df[train_index, ]
+data_test <- df[-train_index, ]
+
+#Afficher les dimensions
+cat("Dimension de la base d'entrainement : ", dim(data_train), "\n")
+cat("Dimension de la base de test : ", dim(data_test), "\n")
+```
+
+# 3.Entrainement du modèle
+
+```{r}
+#Construire l'arbre de décision
+treeModel <- rpart(Number.of.Doctors.Visited ~ ., data=data_train, method = "class")
+
+#Afficher un résumé du modèle
+summary(treeModel)
+```
+
+# 4. Evaluation du modèle
+
+```{r}
+rpart.plot(treeModel, main="Arbre de décision")
+# Faire des prédictions sur le jeu de test
+predictions <- predict(treeModel, newdata = data_test, type = "class")
+
+# Comparer les prédictions avec les vraies valeurs
+y_true <- data_test$Number.of.Doctors.Visited
+accuracy <- sum(predictions == y_true) / length(y_true)
+
+# Afficher l'accuracy
+print(paste("L'accuracy du modèle est de", round(accuracy * 100, 2), "%"))
+
+# matrice de confusion
+conf_matrix <- table(Predictions = predictions, Réel = y_true)
+print(conf_matrix)
+```
+
+# 1bis. Nouveau test réalisé en modifiant le dataset, afin d'obtenir une meilleure généralisation (classification binaire souvent plus efficace)
+
+```{r}
+df$Number.of.Doctors.Visited <- as.factor(
+  ifelse(as.character(df$Number.of.Doctors.Visited) %in% c("1", "2"), "0", as.character(df$Number.of.Doctors.Visited))
+)
+
+# Vérification
+table(df$Number.of.Doctors.Visited)
+
+# Calculer la distribution de la variable cible
+distribution <- df %>%
+  group_by(Number.of.Doctors.Visited) %>%
+  summarise(Count = n())
+
+# Afficher la distribution sous forme de graphique
+ggplot(df, aes(x = factor(Number.of.Doctors.Visited))) +
+  geom_bar(fill = "steelblue") +
+  geom_text(stat='count', aes(label=..count..), vjust=-0.5) +  # Ajout des chiffres au-dessus des barres
+  labs(title = "Distribution du nombre de médecins visités",
+       x = "Nombre de médecins visités",
+       y = "Nombre de patients") + theme_minimal()
+```
+
+# 2bis. Séparation Train Test
+
+```{r}
+set.seed(123)  # Fixer la graine pour la reproductibilité
+
+train_index <- createDataPartition(df$Number.of.Doctors.Visited, p = 0.8, list = FALSE)
+data_train <- df[train_index, ]
+data_test <- df[-train_index, ]
+
+#Afficher les dimensions
+cat("Dimension de la base d'entrainement : ", dim(data_train), "\n")
+cat("Dimension de la base de test : ", dim(data_test), "\n")
+```
+
+# 3bis. Entrainement du modèle
+
+```{r}
+#Construire l'arbre de décision
+treeModel <- rpart(Number.of.Doctors.Visited ~ ., data=data_train, method = "class")
+
+#Afficher un résumé du modèle
+summary(treeModel)
+```
+
+# 4bis. Evaluation du modèle
+
+```{r}
+rpart.plot(treeModel, main="Arbre de décision")
+# Faire des prédictions sur le jeu de test
+predictions <- predict(treeModel, newdata = data_test, type = "class")
+
+# Comparer les prédictions avec les vraies valeurs
+y_true <- data_test$Number.of.Doctors.Visited
+accuracy <- sum(predictions == y_true) / length(y_true)
+
+# Afficher l'accuracy
+print(paste("L'accuracy du modèle est de", round(accuracy * 100, 2), "%"))
+
+# matrice de confusion
+conf_matrix <- table(Predictions = predictions, Réel = y_true)
+print(conf_matrix)
+```

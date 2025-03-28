@@ -1,0 +1,137 @@
+
+# Importation des librairies
+```{r}
+library(tidyverse)  # Pour la manipulation des données
+library(caret)      # Pour l'entraînement des modèles
+library(randomForest) # Random Forest
+library(pROC)       # Courbes ROC
+library(nnet)       # Pour la régression logistique multinomiale
+library(dplyr)
+```
+
+## Regression logistique (fusions des classes 1 et 3)
+
+# 1. Chargement et nettoyage des données
+```{r}
+df <- read.csv("doctor_visits.csv", header = TRUE, sep = ',')
+df$Age <- NULL
+# Fusionner les classes 1 et 3 de la variable cible
+df$Number.of.Doctors.Visited <- as.character(df$Number.of.Doctors.Visited)  # Convertir en caractère pour éviter les NA
+df$Number.of.Doctors.Visited[df$Number.of.Doctors.Visited %in% c("1", "3")] <- "1_3"  # Fusionner
+df$Number.of.Doctors.Visited <- as.factor(df$Number.of.Doctors.Visited)  # Reconvertir en facteur
+```
+
+# 2. Division du train test
+```{r}
+set.seed(123)  # Pour reproductibilité
+index <- createDataPartition(df$Number.of.Doctors.Visited, p = 0.8, list = FALSE)
+train_data <- df[index, ]
+test_data <- df[-index, ]
+```
+
+# 3. Entrainement du modèle
+```{r}
+#Ajuster le modèle de régression logistique
+model <- glm(Number.of.Doctors.Visited ~ ., data = train_data, family = binomial)
+
+#Résumé du modèle
+summary(model)
+```
+
+# 4. Evaluation du modèle
+```{r}
+# Faire des prédictions sur le set de test
+predictions <- predict(model, test_data, type = "response")
+
+# Convertir les probabilités en classes (seuil 0.5)
+predicted_classes <- ifelse(predictions > 0.5, "1_3", "2")
+predicted_classes <- as.factor(predicted_classes)
+
+# Évaluer la performance avec une matrice de confusion
+confusionMatrix(predicted_classes, test_data$Number.of.Doctors.Visited)
+```
+
+## Regression logistique (fusions des classes 2 et 3)
+
+# 1. Chargement et nottoyage des données
+```{r}
+df <- read.csv("doctor_visits.csv", header = TRUE, sep = ',')
+df$Age <- NULL
+# 2. Fusionner les classes 1 et 3 de la variable cible
+df$Number.of.Doctors.Visited <- as.character(df$Number.of.Doctors.Visited)  # Convertir en caractère pour éviter les NA
+df$Number.of.Doctors.Visited[df$Number.of.Doctors.Visited %in% c("2", "3")] <- "2_3"  # Fusionner
+df$Number.of.Doctors.Visited <- as.factor(df$Number.of.Doctors.Visited)  # Reconvertir en facteur
+```
+
+# 2. Division du train test
+```{r}
+set.seed(123)  # Pour reproductibilité
+index <- createDataPartition(df$Number.of.Doctors.Visited, p = 0.8, list = FALSE)
+train_data <- df[index, ]
+test_data <- df[-index, ]
+```
+
+# 3. Entrainement du modèle
+```{r}
+#Ajuster le modèle de régression logistique
+model <- glm(Number.of.Doctors.Visited ~ ., data = train_data, family = binomial)
+
+#Résumé du modèle
+summary(model)
+```
+
+# 4. Evaluation du modèle
+```{r}
+# Faire des prédictions sur le set de test
+predictions <- predict(model, test_data, type = "response")
+
+# Convertir les probabilités en classes (seuil 0.5)
+predicted_classes <- ifelse(predictions > 0.5, "1", "2_3")
+predicted_classes <- as.factor(predicted_classes)
+
+# Évaluer la performance avec une matrice de confusion
+confusionMatrix(predicted_classes, test_data$Number.of.Doctors.Visited)
+```
+
+
+## Regression logistique (fusions des classes 1 et 2)
+
+# 1. Chargement et nettoyage des données
+```{r}
+df <- read.csv("doctor_visits.csv", header = TRUE, sep = ',')
+df$Age <- NULL
+# Fusionner les classes 1 et 3 de la variable cible
+df$Number.of.Doctors.Visited <- as.character(df$Number.of.Doctors.Visited)  # Convertir en caractère pour éviter les NA
+df$Number.of.Doctors.Visited[df$Number.of.Doctors.Visited %in% c("1", "2")] <- "1_2"  # Fusionner
+df$Number.of.Doctors.Visited <- as.factor(df$Number.of.Doctors.Visited)  # Reconvertir en facteur
+```
+
+# 2. Division du train test
+```{r}
+set.seed(123)  # Pour reproductibilité
+index <- createDataPartition(df$Number.of.Doctors.Visited, p = 0.8, list = FALSE)
+train_data <- df[index, ]
+test_data <- df[-index, ]
+```
+
+# 3. Entrainement du modèle
+```{r}
+#Ajuster le modèle de régression logistique
+model <- glm(Number.of.Doctors.Visited ~ ., data = train_data, family = binomial)
+
+#Résumé du modèle
+summary(model)
+```
+
+# 4. Evaluation du modèle
+```{r}
+# Faire des prédictions sur le set de test
+predictions <- predict(model, test_data, type = "response")
+
+# Convertir les probabilités en classes (seuil 0.5)
+predicted_classes <- ifelse(predictions > 0.5, "1_2", "3")
+predicted_classes <- as.factor(predicted_classes)
+
+# Évaluer la performance avec une matrice de confusion
+confusionMatrix(predicted_classes, test_data$Number.of.Doctors.Visited)
+```

@@ -1,0 +1,73 @@
+
+```{r}
+# Charger les packages nécessaires
+library(dplyr)
+library(caret)
+```
+
+# 1.Chargement et nettoyage des données
+```{r}
+# Charger les données
+df <- read.csv("doctor_visits.csv", header = TRUE, sep = ',')
+
+# Supprimer les variables inutiles (si besoin, comme Age)
+df$Age <- NULL  # Supprimer la colonne 'Age' si elle n'est pas nécessaire
+```
+
+# 2. Division le dataset en train et test
+```{r}
+set.seed(123)  # Pour reproductibilité
+index <- createDataPartition(df$Number.of.Doctors.Visited, p = 0.8, list = FALSE)
+train_data <- df[index, ]
+test_data <- df[-index, ]
+```
+
+# 3. Entrainement du modèle
+```{r}
+# Ajuster le modèle de régression linéaire
+# Ici, on fait une régression linéaire sur 'Number.of.Doctors.Visited' comme variable dépendante
+model <- lm(Number.of.Doctors.Visited ~ ., data = train_data)
+
+# 6. Résumé du modèle
+summary(model)
+
+# 7. Faire des prédictions sur le set de test
+predictions <- predict(model, test_data)
+```
+
+# 4. Evaluation du modèle
+```{r}
+# 8. Évaluer la performance du modèle
+# Comparer les prédictions avec les valeurs réelles du test
+actual_values <- test_data$Number.of.Doctors.Visited
+
+# Calculer l'erreur quadratique moyenne (RMSE)
+RMSE <- sqrt(mean((predictions - actual_values)^2))
+print(paste("Root Mean Squared Error (RMSE):", RMSE))
+```
+
+
+```{r}
+# Prédictions sur le set de test
+predictions <- predict(model, test_data)
+
+# Sélectionner les 10 premières valeurs réelles et prédites
+predicted_values_10 <- predictions[1:20]
+actual_values_10 <- actual_values[1:20]
+
+# Afficher les 10 premières prédictions
+results <- data.frame(
+  Index = 1:20,
+  Actual_Values = actual_values_10,
+  Predicted_Values = predicted_values_10,
+  Difference = predicted_values_10 - actual_values_10
+)
+
+print(results)
+```
+
+```{r}
+# Calcul de l'erreur quadratique moyenne
+RMSE <- sqrt(mean((predictions - actual_values)^2))
+print(paste("Root Mean Squared Error (RMSE):", RMSE))
+```
